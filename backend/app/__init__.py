@@ -30,6 +30,9 @@ def create_app(config_class: type = Config) -> Flask:
     from app.api.expenses.routes import expenses_bp
     from app.api.invoices.routes import invoices_bp
     from app.api.tickets.routes import tickets_bp
+    from app.api.leasing.routes import leasing_bp
+    from app.api.reports.routes import reports_bp
+    from app.api.complaints.routes import complaints_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(buildings_bp, url_prefix="/api/buildings")
@@ -38,6 +41,9 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(expenses_bp, url_prefix="/api/expenses")
     app.register_blueprint(invoices_bp, url_prefix="/api/invoices")
     app.register_blueprint(tickets_bp, url_prefix="/api/tickets")
+    app.register_blueprint(leasing_bp, url_prefix="/api/leasing")
+    app.register_blueprint(reports_bp, url_prefix="/api/reports")
+    app.register_blueprint(complaints_bp, url_prefix="/api/complaints")
 
     @app.get("/api/health")
     def health():

@@ -73,6 +73,7 @@ def _serialize_tenancy(tenancy: Tenancy) -> dict:
     unit_type = unit.unit_type
     return {
         "id": tenancy.public_id,
+        "unit_id": unit.public_id,
         "unit_number": unit.unit_number,
         "building_name": unit.building.name,
         "building_location": unit.building.location,
@@ -99,9 +100,13 @@ def my_tenancies():
 @tenants_bp.post("/link-unit")
 @jwt_required()
 def link_unit():
-    """Links the current tenant to a vacant unit they picked from the dropdown. A
-    tenant can hold several tenancies (e.g. renting more than one unit), so this
-    doesn't check whether they already have one — only that this specific unit is free."""
+    """Retired unsafe self-service move-in endpoint.
+
+    Use POST /api/leasing/applications and wait for a landlord approval instead.
+    This route remains only to give old clients an actionable upgrade response.
+    """
+    raise ApiError("Direct unit linking has been replaced by the landlord-approved application workflow", 410)
+    """Links the current tenant to a vacant unit they picked from the dropdown."""
     tenant = _current_tenant()
 
     try:

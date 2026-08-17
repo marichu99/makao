@@ -1,6 +1,18 @@
 # Makao
 
-Property management app for landlords: buildings, units, tenancies, invoices, expenses, and maintenance tickets.
+Property management app for landlords and tenants: buildings, approved leasing,
+tenancies, inspections and documents, invoices and reconciled payments, expenses,
+vendors, maintenance tickets, and portfolio reporting.
+
+## Operations workflow
+
+Tenants submit an application for a vacant unit; a landlord reviews it and approval
+creates the tenancy. This deliberately replaces self-service unit claiming. Landlords
+can record inspections/documents, reconcile verified payments against invoices, track
+expenses and tickets, and view portfolio collections, arrears, expenses, and cash flow.
+
+See [backend/README-OPERATIONS.md](backend/README-OPERATIONS.md) before deploying the
+operations schema to an existing database.
 
 ## Stack
 

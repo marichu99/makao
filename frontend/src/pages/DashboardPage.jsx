@@ -1,23 +1,33 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Building2, Users, Wallet, Receipt, Wrench, Menu } from 'lucide-react'
+import { LayoutDashboard, Building2, Users, Wallet, Receipt, Wrench, Menu, FileCheck2, BarChart3, MessageSquareWarning } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import Sidebar from '@/components/shared/Sidebar'
 import OverviewPage from '@/pages/landlord/OverviewPage'
 import BuildingsPage from '@/pages/landlord/BuildingsPage'
 import TenantsPage from '@/pages/landlord/TenantsPage'
 import EmptyGridPage from '@/pages/landlord/EmptyGridPage'
+import ApplicationsPage from '@/pages/landlord/ApplicationsPage'
+import OperationsPage from '@/pages/landlord/OperationsPage'
+import ReportsPage from '@/pages/landlord/ReportsPage'
+import InvoicesPage from '@/pages/landlord/InvoicesPage'
 import TenantOverviewPage from '@/pages/tenant/OverviewPage'
 import TenantPaymentsPage from '@/pages/tenant/PaymentsPage'
+import TenantMaintenancePage from '@/pages/tenant/MaintenancePage'
+import TenantComplaintsPage from '@/pages/tenant/ComplaintsPage'
+import LandlordComplaintsPage from '@/pages/landlord/ComplaintsPage'
 import { colors } from '@/theme'
 
 const landlordNavItems = [
   { to: '/dashboard', end: true, icon: LayoutDashboard, label: 'Overview' },
   { to: '/dashboard/buildings', end: false, icon: Building2, label: 'Buildings' },
   { to: '/dashboard/tenants', end: false, icon: Users, label: 'Tenants' },
+  { to: '/dashboard/applications', end: false, icon: FileCheck2, label: 'Applications', countKey: 'applications' },
   { to: '/dashboard/expenses', end: false, icon: Wallet, label: 'Expenses' },
-  { to: '/dashboard/invoices', end: false, icon: Receipt, label: 'Invoices' },
-  { to: '/dashboard/tickets', end: false, icon: Wrench, label: 'Tickets' },
+  { to: '/dashboard/invoices', end: false, icon: Receipt, label: 'Invoices', countKey: 'invoices' },
+  { to: '/dashboard/tickets', end: false, icon: Wrench, label: 'Tickets', countKey: 'tickets' },
+  { to: '/dashboard/complaints', end: false, icon: MessageSquareWarning, label: 'Complaints', countKey: 'complaints' },
+  { to: '/dashboard/reports', end: false, icon: BarChart3, label: 'Reports' },
 ]
 
 const tenantNavItems = [
@@ -25,6 +35,7 @@ const tenantNavItems = [
   { to: '/dashboard/payments', end: false, icon: Wallet, label: 'Payments' },
   { to: '/dashboard/invoices', end: false, icon: Receipt, label: 'Invoices' },
   { to: '/dashboard/tickets', end: false, icon: Wrench, label: 'Maintenance' },
+  { to: '/dashboard/complaints', end: false, icon: MessageSquareWarning, label: 'Complaints' },
 ]
 
 // Shared by both roles: a mobile top bar (hamburger + wordmark, hidden on md+) sits above
@@ -67,43 +78,36 @@ function DashboardShell({ navItems, userName, onLogout, children }) {
   )
 }
 
+// Pending counts are best-effort UI decoration (sidebar badges), so a failed
+// fetch just leaves the badges off rather than blocking the dashboard.
+function useLandlordNavItems() {
+  const { fetchPendingCounts } = useAuth()
+  const [counts, setCounts] = useState({})
+
+  useEffect(() => {
+    fetchPendingCounts().then(setCounts).catch(() => {})
+  }, [])
+
+  return useMemo(
+    () => landlordNavItems.map((item) => (item.countKey ? { ...item, count: counts[item.countKey] } : item)),
+    [counts]
+  )
+}
+
 function LandlordShell({ session, onLogout }) {
+  const navItems = useLandlordNavItems()
   return (
-    <DashboardShell navItems={landlordNavItems} userName={session.user?.full_name} onLogout={onLogout}>
+    <DashboardShell navItems={navItems} userName={session.user?.full_name} onLogout={onLogout}>
       <Routes>
         <Route index element={<OverviewPage />} />
         <Route path="buildings" element={<BuildingsPage />} />
         <Route path="tenants" element={<TenantsPage />} />
-        <Route
-          path="expenses"
-          element={
-            <EmptyGridPage
-              icon={Wallet}
-              title="Expenses"
-              message="Track building expenses here once you start logging them."
-            />
-          }
-        />
-        <Route
-          path="invoices"
-          element={
-            <EmptyGridPage
-              icon={Receipt}
-              title="Invoices"
-              message="Rent invoices will appear here once billing is set up."
-            />
-          }
-        />
-        <Route
-          path="tickets"
-          element={
-            <EmptyGridPage
-              icon={Wrench}
-              title="Tickets"
-              message="Maintenance requests from tenants will show up here."
-            />
-          }
-        />
+        <Route path="applications" element={<ApplicationsPage />} />
+        <Route path="expenses" element={<OperationsPage type="expenses" />} />
+        <Route path="invoices" element={<InvoicesPage />} />
+        <Route path="tickets" element={<OperationsPage type="tickets" />} />
+        <Route path="complaints" element={<LandlordComplaintsPage />} />
+        <Route path="reports" element={<ReportsPage />} />
       </Routes>
     </DashboardShell>
   )
@@ -125,16 +129,8 @@ function TenantShell({ session, onLogout }) {
             />
           }
         />
-        <Route
-          path="tickets"
-          element={
-            <EmptyGridPage
-              icon={Wrench}
-              title="Maintenance"
-              message="Raise and track maintenance requests with your landlord here."
-            />
-          }
-        />
+        <Route path="tickets" element={<TenantMaintenancePage />} />
+        <Route path="complaints" element={<TenantComplaintsPage />} />
       </Routes>
     </DashboardShell>
   )

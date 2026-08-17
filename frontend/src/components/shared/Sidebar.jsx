@@ -36,6 +36,7 @@ const s = {
   },
   nav: { display: 'flex', flexDirection: 'column', gap: '0.25rem' },
   link: (active, collapsed) => ({
+    position: 'relative',
     display: 'flex',
     alignItems: 'center',
     justifyContent: collapsed ? 'center' : 'flex-start',
@@ -48,6 +49,30 @@ const s = {
     background: active ? 'rgba(160, 98, 42, 0.08)' : 'transparent',
     textDecoration: 'none',
   }),
+  linkLabel: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  countBadge: {
+    minWidth: '18px',
+    height: '18px',
+    padding: '0 5px',
+    borderRadius: '999px',
+    background: colors.error,
+    color: colors.white,
+    fontSize: '0.7rem',
+    fontWeight: 700,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    lineHeight: 1,
+  },
+  countDot: {
+    position: 'absolute',
+    top: '4px',
+    right: '4px',
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    background: colors.error,
+  },
   footer: {
     marginTop: 'auto',
     borderTop: `1px solid ${colors.cream[200]}`,
@@ -111,17 +136,18 @@ export default function Sidebar({ navItems, userName, onLogout, mobileOpen, onMo
         </div>
 
         <nav style={s.nav}>
-          {navItems.map(({ to, end, icon: Icon, label }) => (
+          {navItems.map(({ to, end, icon: Icon, label, count }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
-              title={collapsed ? label : undefined}
+              title={collapsed && count ? `${label} (${count} pending)` : collapsed ? label : undefined}
               onClick={onMobileClose}
               style={({ isActive }) => s.link(isActive, collapsed)}
             >
               <Icon size={17} />
-              {!collapsed && label}
+              {!collapsed && <span style={s.linkLabel}>{label}</span>}
+              {!!count && (collapsed ? <span style={s.countDot} /> : <span style={s.countBadge}>{count}</span>)}
             </NavLink>
           ))}
         </nav>
