@@ -8,7 +8,10 @@ from app.models.expense import Expense, ExpenseAllocation, ExpenseType, ExpenseL
 from app.models.utility_bill import UtilityBill
 from app.models.invoice import Invoice, Payment, InvoiceStatus, PaymentMethod
 from app.models.notice import Notice, NoticeType
-from app.models.ticket import Ticket, TicketStatus
+from app.models.ticket import Ticket, TicketStatus, TicketPriority
+from app.models.complaint import Complaint, ComplaintStatus
+from app.models.operations import (Application, ApplicationStatus, Inspection, InspectionType,
+                                  Document, Vendor, AuditEvent, TicketComment)
 
 __all__ = [
     "User",
@@ -35,4 +38,15 @@ __all__ = [
     "NoticeType",
     "Ticket",
     "TicketStatus",
+    "TicketPriority",
+    "Complaint",
+    "ComplaintStatus",
+    "Application",
+    "ApplicationStatus",
+    "Inspection",
+    "InspectionType",
+    "Document",
+    "Vendor",
+    "AuditEvent",
+    "TicketComment",
 ]

@@ -46,6 +46,8 @@ class Unit(BaseModel):
     tenancies = db.relationship("Tenancy", back_populates="unit", cascade="all, delete-orphan")
     tickets = db.relationship("Ticket", back_populates="unit", cascade="all, delete-orphan")
     expense_allocations = db.relationship("ExpenseAllocation", back_populates="unit")
+    applications = db.relationship("Application", back_populates="unit", cascade="all, delete-orphan")
+    complaints = db.relationship("Complaint", back_populates="unit", cascade="all, delete-orphan")
 
     __table_args__ = (
         db.UniqueConstraint("building_id", "unit_number", name="uq_unit_number_per_building"),

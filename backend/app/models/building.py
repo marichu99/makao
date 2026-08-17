@@ -31,3 +31,4 @@ class Building(BaseModel):
     caretaker_assignments = db.relationship(
         "CaretakerAssignment", back_populates="building", cascade="all, delete-orphan"
     )
+    documents = db.relationship("Document", back_populates="building", cascade="all, delete-orphan")

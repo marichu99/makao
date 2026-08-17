@@ -17,7 +17,12 @@ function App() {
           <Route path="/dashboard/*" element={<DashboardPage />} />
         </Routes>
       </BrowserRouter>
-      <Toaster position="top-right" richColors />
+      <Toaster
+        position="top-right"
+        richColors
+        closeButton
+        toastOptions={{ duration: 10_000 }}
+      />
     </AuthProvider>
   )
 }

@@ -134,3 +134,28 @@ def tenant_welcome_email(full_name: str) -> tuple[str, str]:
         <li>Pick your unit from the list</li>
       </ul>"""
     return subject, _shell("Welcome to Nyumba", body, "Go to your dashboard", login_url)
+
+
+def maintenance_update_email(
+    full_name: str,
+    *,
+    event: str,
+    ticket_title: str,
+    building_name: str,
+    unit_number: str,
+    detail: str,
+) -> tuple[str, str]:
+    """Branded notification shared by tenants and landlords for ticket events."""
+    first_name = html.escape(full_name.split(" ")[0])
+    dashboard_url = f"{current_app.config['FRONTEND_URL']}/dashboard/tickets"
+    subject = f"{event} — {ticket_title}"
+    body = f"""\
+      <p>Hi {first_name},</p>
+      <p style="margin:0 0 16px;color:{BROWN_600};font-size:13px;">
+        Unit {html.escape(unit_number)} · {html.escape(building_name)}
+      </p>
+      <p>{html.escape(detail)}</p>
+      <div style="margin:20px 0;padding:14px 16px;border-left:4px solid {ACCENT};background:{CREAM_50};">
+        <strong style="color:{BROWN_800};">{html.escape(ticket_title)}</strong>
+      </div>"""
+    return subject, _shell(event, body, "Open maintenance request", dashboard_url)

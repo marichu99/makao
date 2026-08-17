@@ -25,3 +25,4 @@ class User(BaseModel):
     )
     tenancies = db.relationship("Tenancy", back_populates="tenant")
     caretaker_assignments = db.relationship("CaretakerAssignment", back_populates="user")
+    applications = db.relationship("Application", foreign_keys="Application.applicant_id", back_populates="applicant")

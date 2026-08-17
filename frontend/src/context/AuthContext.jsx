@@ -99,7 +99,26 @@ export function AuthProvider({ children }) {
   const fetchVacantUnits = (buildingId) =>
     callWithAuth((token) => api.get(`/buildings/${buildingId}/vacant-units`, token))
 
-  const linkUnit = (unitId) => callWithAuth((token) => api.post('/tenants/link-unit', { unit_id: unitId }, token))
+  const submitApplication = (payload) => callWithAuth((token) => api.post('/leasing/applications', payload, token))
+  const fetchApplications = () => callWithAuth((token) => api.get('/leasing/applications', token))
+  const approveApplication = (id) => callWithAuth((token) => api.post(`/leasing/applications/${id}/approve`, {}, token))
+  const rejectApplication = (id) => callWithAuth((token) => api.post(`/leasing/applications/${id}/reject`, {}, token))
+  const fetchExpenses = () => callWithAuth((token) => api.get('/expenses/', token))
+  const fetchTickets = () => callWithAuth((token) => api.get('/tickets/', token))
+  const createTicket = (payload) => callWithAuth((token) => api.post('/tickets/', payload, token))
+  const fetchTicketComments = (ticketId) => callWithAuth((token) => api.get(`/tickets/${ticketId}/comments`, token))
+  const addTicketComment = (ticketId, body) => callWithAuth((token) => api.post(`/tickets/${ticketId}/comments`, { body }, token))
+  const updateTicket = (ticketId, payload) => callWithAuth((token) => api.patch(`/tickets/${ticketId}`, payload, token))
+  const fetchComplaints = () => callWithAuth((token) => api.get('/complaints/', token))
+  const createComplaint = (payload) => callWithAuth((token) => api.post('/complaints/', payload, token))
+  const updateComplaint = (id, payload) => callWithAuth((token) => api.patch(`/complaints/${id}`, payload, token))
+  const fetchInvoices = () => callWithAuth((token) => api.get('/invoices/', token))
+  const recordInvoicePayment = (invoiceId, payload) =>
+    callWithAuth((token) => api.post(`/invoices/${invoiceId}/payments`, payload, token))
+  const sendInvoiceReminder = (invoiceId) =>
+    callWithAuth((token) => api.post(`/invoices/${invoiceId}/send-reminder`, {}, token))
+  const fetchPortfolioReport = () => callWithAuth((token) => api.get('/reports/portfolio', token))
+  const fetchPendingCounts = () => callWithAuth((token) => api.get('/reports/pending-counts', token))
 
   const updateMoveInDate = (tenancyId, moveInDate) =>
     callWithAuth((token) => api.patch(`/tenants/tenancies/${tenancyId}/move-in-date`, { move_in_date: moveInDate }, token))
@@ -147,7 +166,24 @@ export function AuthProvider({ children }) {
         fetchOverviewStats,
         fetchBuildingsDirectory,
         fetchVacantUnits,
-        linkUnit,
+        submitApplication,
+        fetchApplications,
+        approveApplication,
+        rejectApplication,
+        fetchExpenses,
+        fetchTickets,
+        createTicket,
+        fetchTicketComments,
+        addTicketComment,
+        updateTicket,
+        fetchComplaints,
+        createComplaint,
+        updateComplaint,
+        fetchInvoices,
+        recordInvoicePayment,
+        sendInvoiceReminder,
+        fetchPortfolioReport,
+        fetchPendingCounts,
         fetchMyTenancies,
         updateMoveInDate,
         fetchLandlordTenants,

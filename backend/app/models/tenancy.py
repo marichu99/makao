@@ -29,6 +29,8 @@ class Tenancy(BaseModel):
     tenant = db.relationship("User", back_populates="tenancies")
     invoices = db.relationship("Invoice", back_populates="tenancy", cascade="all, delete-orphan")
     notices = db.relationship("Notice", back_populates="tenancy", cascade="all, delete-orphan")
+    inspections = db.relationship("Inspection", back_populates="tenancy", cascade="all, delete-orphan")
+    documents = db.relationship("Document", back_populates="tenancy", cascade="all, delete-orphan")
 
 
 class CaretakerAssignment(BaseModel):

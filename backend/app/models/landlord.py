@@ -11,3 +11,4 @@ class Landlord(BaseModel):
 
     user = db.relationship("User", back_populates="landlord_profile")
     buildings = db.relationship("Building", back_populates="landlord", cascade="all, delete-orphan")
+    vendors = db.relationship("Vendor", back_populates="landlord", cascade="all, delete-orphan")

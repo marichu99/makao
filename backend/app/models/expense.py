@@ -26,6 +26,9 @@ class Expense(BaseModel):
     liability = db.Column(db.Enum(ExpenseLiability), nullable=False, default=ExpenseLiability.COMMON)
     incurred_on = db.Column(db.Date, nullable=False)
     notes = db.Column(db.String(500), nullable=True)
+    vendor_id = db.Column(db.Integer, db.ForeignKey("vendors.id"), nullable=True)
+    receipt_url = db.Column(db.String(1000), nullable=True)
+    recurring = db.Column(db.Boolean, nullable=False, default=False)
 
     building = db.relationship("Building", back_populates="expenses")
     unit = db.relationship("Unit")

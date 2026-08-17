@@ -23,6 +23,7 @@ export default function DataGrid({
   searchKeys,
   onReload,
   actions,
+  actionsLabel = 'Actions',
   itemLabel = 'items',
   emptyMessage = 'Nothing matches your search.',
 }) {
@@ -99,7 +100,7 @@ export default function DataGrid({
                 />
               }
             >
-              <MoreVertical size={14} /> Actions
+              <MoreVertical size={14} /> {actionsLabel}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-56">
               {actions(selectedRows, { clearSelection })}
