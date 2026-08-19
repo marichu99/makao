@@ -1,4 +1,7 @@
-from flask import Flask
+import os
+
+from flask import Flask, abort, send_file
+from flask_jwt_extended import jwt_required
 
 from app.config import Config
 from app.extensions import db, migrate, jwt, bcrypt, cors
@@ -48,6 +51,19 @@ def create_app(config_class: type = Config) -> Flask:
     @app.get("/api/health")
     def health():
         return {"status": "ok"}
+
+    @app.get("/api/uploads/<path:stored_path>")
+    @jwt_required()
+    def serve_local_upload(stored_path):
+        # Only reachable when USE_LOCAL_STORAGE is set — in GCS mode, uploads are
+        # served via signed URLs instead (see app/utils/storage.py).
+        if not app.config.get("USE_LOCAL_STORAGE"):
+            abort(404)
+        uploads_root = os.path.abspath("uploads")
+        local_path = os.path.abspath(os.path.join(uploads_root, stored_path))
+        if not local_path.startswith(uploads_root + os.sep) or not os.path.isfile(local_path):
+            abort(404)
+        return send_file(local_path)
 
     from app.utils.errors import ApiError
 

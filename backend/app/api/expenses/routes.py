@@ -7,6 +7,7 @@ from app.models import Building, Expense, ExpenseLiability, ExpenseType, User
 from app.schemas.operations import ExpenseIn
 from app.utils.audit import audit
 from app.utils.errors import ApiError, pydantic_error_response
+from app.utils.storage import get_signed_url
 
 expenses_bp = Blueprint("expenses", __name__)
 
@@ -20,10 +21,12 @@ def landlord():
 
 def serialize(expense):
     return {"id": expense.public_id, "building_id": expense.building.public_id,
-            "building_name": expense.building.name, "category": expense.category,
+            "building_name": expense.building.name, "unit_id": expense.unit.public_id if expense.unit else None,
+            "unit_number": expense.unit.unit_number if expense.unit else None, "category": expense.category,
             "amount": float(expense.amount), "expense_type": expense.expense_type.value,
             "liability": expense.liability.value, "incurred_on": expense.incurred_on.isoformat(),
-            "notes": expense.notes, "receipt_url": expense.receipt_url, "recurring": expense.recurring}
+            "notes": expense.notes, "has_receipt": bool(expense.receipt_url), "recurring": expense.recurring,
+            "ticket_id": expense.ticket.public_id if expense.ticket else None}
 
 
 @expenses_bp.get("/")
@@ -52,3 +55,17 @@ def create_expense():
     audit("expense.created", expense, building_id=building.public_id, amount=payload.amount)
     db.session.commit()
     return serialize(expense), 201
+
+
+@expenses_bp.get("/<expense_id>/receipt")
+@jwt_required()
+def expense_receipt(expense_id):
+    user = landlord()
+    expense = Expense.query.filter_by(public_id=expense_id).first()
+    if not expense or expense.building.landlord_id != user.landlord_profile.id or not expense.receipt_url:
+        raise ApiError("Receipt not found", 404)
+    # receipt_url is either an internal storage key (uploaded via ticket resolution)
+    # or an externally-hosted URL supplied directly when the expense was created.
+    if expense.receipt_url.startswith("makao/"):
+        return {"url": get_signed_url(expense.receipt_url)}
+    return {"url": expense.receipt_url}

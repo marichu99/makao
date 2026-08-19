@@ -1,16 +1,18 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from flask import Blueprint, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from pydantic import ValidationError
 
 from app.extensions import db
-from app.models import Building, CaretakerAssignment, Ticket, TicketComment, TicketPriority, TicketStatus, Unit, User, UserRole, Vendor
+from app.models import (Building, CaretakerAssignment, Expense, ExpenseLiability, ExpenseType, Ticket,
+                        TicketComment, TicketPriority, TicketStatus, Unit, User, UserRole, Vendor)
 from app.schemas.operations import TicketCommentIn, TicketIn, TicketUpdateIn, VendorIn
 from app.utils.email import send_email_async
 from app.utils.welcome_email import maintenance_update_email
 from app.utils.audit import audit
 from app.utils.errors import ApiError, pydantic_error_response
+from app.utils.storage import UploadRejected, upload_file, validate_upload
 
 tickets_bp = Blueprint("tickets", __name__)
 
@@ -133,6 +135,62 @@ def update_ticket(ticket_id):
     db.session.commit()
     notify_ticket_parties(ticket, "Maintenance request updated", f"The maintenance request status is now {ticket.status.value.replace('_', ' ')}.")
     return serialize(ticket)
+
+
+@tickets_bp.post("/<ticket_id>/resolve")
+@jwt_required()
+def resolve_ticket(ticket_id):
+    """Marks a ticket resolved and, when money was spent fixing it, records a
+    linked Expense (with an optional uploaded receipt) in the same step — so the
+    landlord doesn't have to separately remember to log the cost afterward."""
+    actor = user()
+    ticket = Ticket.query.filter_by(public_id=ticket_id).first()
+    if not ticket or not can_manage(actor, ticket):
+        raise ApiError("Ticket not found", 404)
+    if ticket.status == TicketStatus.RESOLVED:
+        raise ApiError("This ticket is already resolved", 409)
+
+    amount_spent_raw = (request.form.get("amount_spent") or "").strip()
+    amount_spent = None
+    if amount_spent_raw:
+        try:
+            amount_spent = float(amount_spent_raw)
+        except ValueError:
+            raise ApiError("Amount spent must be a number", 422)
+        if amount_spent <= 0:
+            raise ApiError("Amount spent must be greater than zero", 422)
+
+    receipt_file = request.files.get("receipt")
+    if receipt_file and receipt_file.filename:
+        try:
+            validate_upload(receipt_file)
+        except UploadRejected as exc:
+            raise ApiError(str(exc), 422)
+
+    ticket.status = TicketStatus.RESOLVED
+    ticket.resolved_at = datetime.utcnow()
+
+    expense = None
+    if amount_spent is not None:
+        ticket.actual_cost = amount_spent
+        expense = Expense(
+            building_id=ticket.unit.building_id, unit_id=ticket.unit_id, ticket_id=ticket.id,
+            category="Maintenance", amount=amount_spent, expense_type=ExpenseType.VARIABLE,
+            liability=ExpenseLiability.LANDLORD, incurred_on=date.today(),
+            notes=f"Resolved ticket: {ticket.title}", vendor_id=ticket.vendor_id,
+        )
+        db.session.add(expense)
+        db.session.flush()
+        if receipt_file and receipt_file.filename:
+            ext = receipt_file.filename.rsplit(".", 1)[-1].lower()
+            expense.receipt_url = upload_file(
+                receipt_file.stream, f"expenses/{expense.public_id}/receipt.{ext}", receipt_file.content_type
+            )
+
+    audit("ticket.resolved", ticket, actual_cost=amount_spent)
+    db.session.commit()
+    notify_ticket_parties(ticket, "Maintenance request resolved", "This maintenance request has been marked resolved.")
+    return {"ticket": serialize(ticket), "expense_id": expense.public_id if expense else None}
 
 
 @tickets_bp.get("/<ticket_id>/comments")

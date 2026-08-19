@@ -41,3 +41,4 @@ class Ticket(BaseModel):
     vendor = db.relationship("Vendor", back_populates="tickets")
     assigned_to = db.relationship("User", foreign_keys=[assigned_to_id])
     comments = db.relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketComment.created_at")
+    expenses = db.relationship("Expense", back_populates="ticket")
