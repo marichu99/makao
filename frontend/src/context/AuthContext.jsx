@@ -91,6 +91,8 @@ export function AuthProvider({ children }) {
   }
 
   const deleteUnit = (unitId) => callWithAuth((token) => api.delete(`/units/${unitId}`, token))
+  const updateUnitNumber = (unitId, unitNumber) =>
+    callWithAuth((token) => api.patch(`/units/${unitId}`, { unit_number: unitNumber }, token))
 
   const fetchOverviewStats = () => callWithAuth((token) => api.get('/buildings/stats', token))
 
@@ -163,6 +165,7 @@ export function AuthProvider({ children }) {
         fetchBuildingDetail,
         fetchUnitsReportPdf,
         deleteUnit,
+        updateUnitNumber,
         fetchOverviewStats,
         fetchBuildingsDirectory,
         fetchVacantUnits,

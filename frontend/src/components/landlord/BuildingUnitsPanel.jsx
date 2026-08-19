@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { ChevronDown, ChevronRight, ChevronLeft, Search, Trash2, X, Loader2, AlertCircle, Printer } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronLeft, Search, Trash2, X, Loader2, AlertCircle, Printer, Pencil, Check } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -59,7 +59,7 @@ function StatusBadge({ status }) {
 }
 
 export default function BuildingUnitsPanel({ buildingId, onClose, onUnitsChanged }) {
-  const { fetchBuildingDetail, deleteUnit, fetchUnitsReportPdf } = useAuth()
+  const { fetchBuildingDetail, deleteUnit, updateUnitNumber, fetchUnitsReportPdf } = useAuth()
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -73,6 +73,9 @@ export default function BuildingUnitsPanel({ buildingId, onClose, onUnitsChanged
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
   const [reportLoading, setReportLoading] = useState(false)
+  const [editingUnitId, setEditingUnitId] = useState(null)
+  const [editingValue, setEditingValue] = useState('')
+  const [renaming, setRenaming] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -178,6 +181,38 @@ export default function BuildingUnitsPanel({ buildingId, onClose, onUnitsChanged
       toast.error(err.message || 'Could not generate the report.')
     } finally {
       setReportLoading(false)
+    }
+  }
+
+  const startEditingUnit = (unit) => {
+    setEditingUnitId(unit.id)
+    setEditingValue(unit.unit_number)
+  }
+
+  const cancelEditingUnit = () => {
+    setEditingUnitId(null)
+    setEditingValue('')
+  }
+
+  const saveEditingUnit = async () => {
+    const nextNumber = editingValue.trim()
+    if (!nextNumber) { toast.error('Unit name cannot be empty.'); return }
+    setRenaming(true)
+    try {
+      await updateUnitNumber(editingUnitId, nextNumber)
+      setDetail((prev) => ({
+        ...prev,
+        unit_types: prev.unit_types.map((ut) => ({
+          ...ut,
+          units: ut.units.map((u) => (u.id === editingUnitId ? { ...u, unit_number: nextNumber } : u)),
+        })),
+      }))
+      toast.success('Unit renamed.')
+      cancelEditingUnit()
+    } catch (err) {
+      toast.error(err.message || 'Could not rename the unit.')
+    } finally {
+      setRenaming(false)
     }
   }
 
@@ -331,7 +366,39 @@ export default function BuildingUnitsPanel({ buildingId, onClose, onUnitsChanged
                                 <TableCell>
                                   <Checkbox checked={selected.has(unit.id)} onCheckedChange={() => toggleUnit(unit.id)} />
                                 </TableCell>
-                                <TableCell style={{ fontWeight: 600, color: colors.brown[800] }}>{unit.unit_number}</TableCell>
+                                <TableCell style={{ fontWeight: 600, color: colors.brown[800] }}>
+                                  {editingUnitId === unit.id ? (
+                                    <div className="flex items-center gap-1">
+                                      <Input
+                                        autoFocus
+                                        value={editingValue}
+                                        onChange={(e) => setEditingValue(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') saveEditingUnit()
+                                          if (e.key === 'Escape') cancelEditingUnit()
+                                        }}
+                                        disabled={renaming}
+                                        className="h-8 w-24"
+                                      />
+                                      <Button size="icon" variant="ghost" className="h-8 w-8" disabled={renaming} onClick={saveEditingUnit}>
+                                        {renaming ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                                      </Button>
+                                      <Button size="icon" variant="ghost" className="h-8 w-8" disabled={renaming} onClick={cancelEditingUnit}>
+                                        <X size={14} />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditingUnit(unit)}
+                                      className="group flex items-center gap-1.5"
+                                      title="Rename unit"
+                                    >
+                                      {unit.unit_number}
+                                      <Pencil size={12} className="opacity-0 group-hover:opacity-60" color={colors.brown[600]} />
+                                    </button>
+                                  )}
+                                </TableCell>
                                 <TableCell style={{ color: colors.brown[600] }}>{unit.floor ?? '—'}</TableCell>
                                 <TableCell>
                                   <StatusBadge status={unit.status} />
