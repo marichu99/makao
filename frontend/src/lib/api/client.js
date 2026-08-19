@@ -32,6 +32,23 @@ async function request(path, { method = 'GET', body, token } = {}) {
   return data
 }
 
+async function requestForm(path, formData, token) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  })
+
+  const data = await res.json().catch(() => null)
+
+  if (!res.ok) {
+    const message = data?.error || data?.msg || data?.details?.[0]?.message || 'Something went wrong'
+    throw new ApiClientError(message, res.status)
+  }
+
+  return data
+}
+
 async function requestBlob(path, token) {
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -51,5 +68,6 @@ export const api = {
   post: (path, body, token) => request(path, { method: 'POST', body, token }),
   patch: (path, body, token) => request(path, { method: 'PATCH', body, token }),
   delete: (path, token) => request(path, { method: 'DELETE', token }),
+  postForm: (path, formData, token) => requestForm(path, formData, token),
   getBlob: (path, token) => requestBlob(path, token),
 }

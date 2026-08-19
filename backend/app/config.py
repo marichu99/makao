@@ -23,3 +23,7 @@ class Config:
     EMAIL_FROM = os.environ.get("EMAIL_FROM")
 
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+
+    GCS_BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME")
+    GCS_CREDENTIALS_JSON = os.environ.get("GCS_CREDENTIALS_JSON")
+    USE_LOCAL_STORAGE = os.environ.get("USE_LOCAL_STORAGE", "true").lower() == "true"

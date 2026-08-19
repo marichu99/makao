@@ -29,9 +29,11 @@ class Expense(BaseModel):
     vendor_id = db.Column(db.Integer, db.ForeignKey("vendors.id"), nullable=True)
     receipt_url = db.Column(db.String(1000), nullable=True)
     recurring = db.Column(db.Boolean, nullable=False, default=False)
+    ticket_id = db.Column(db.Integer, db.ForeignKey("tickets.id"), nullable=True)  # set when raised from resolving a ticket
 
     building = db.relationship("Building", back_populates="expenses")
     unit = db.relationship("Unit")
+    ticket = db.relationship("Ticket", back_populates="expenses")
     allocations = db.relationship(
         "ExpenseAllocation", back_populates="expense", cascade="all, delete-orphan"
     )

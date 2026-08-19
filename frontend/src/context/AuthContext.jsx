@@ -111,6 +111,8 @@ export function AuthProvider({ children }) {
   const fetchTicketComments = (ticketId) => callWithAuth((token) => api.get(`/tickets/${ticketId}/comments`, token))
   const addTicketComment = (ticketId, body) => callWithAuth((token) => api.post(`/tickets/${ticketId}/comments`, { body }, token))
   const updateTicket = (ticketId, payload) => callWithAuth((token) => api.patch(`/tickets/${ticketId}`, payload, token))
+  const resolveTicket = (ticketId, formData) => callWithAuth((token) => api.postForm(`/tickets/${ticketId}/resolve`, formData, token))
+  const fetchExpenseReceiptUrl = (expenseId) => callWithAuth((token) => api.get(`/expenses/${expenseId}/receipt`, token))
   const fetchComplaints = () => callWithAuth((token) => api.get('/complaints/', token))
   const createComplaint = (payload) => callWithAuth((token) => api.post('/complaints/', payload, token))
   const updateComplaint = (id, payload) => callWithAuth((token) => api.patch(`/complaints/${id}`, payload, token))
@@ -179,6 +181,8 @@ export function AuthProvider({ children }) {
         fetchTicketComments,
         addTicketComment,
         updateTicket,
+        resolveTicket,
+        fetchExpenseReceiptUrl,
         fetchComplaints,
         createComplaint,
         updateComplaint,
