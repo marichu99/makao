@@ -1,15 +1,18 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Blueprint, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from pydantic import ValidationError
 
 from app.extensions import db
-from app.models import (Application, ApplicationStatus, Building, Document, Inspection,
-                        Tenancy, TenancyStatus, Unit, UnitStatus, User, UserRole)
-from app.schemas.operations import ApplicationIn, DocumentIn, InspectionIn, MoveOutIn
+from app.models import (Application, ApplicationStatus, Building, DepositPayment, Document, Inspection, Invoice,
+                        InvoiceStatus, PaymentMethod, Tenancy, TenancyStatus, Unit, UnitStatus, User, UserRole)
+from app.schemas.operations import ApplicationIn, ApproveApplicationIn, DepositPaymentIn, DocumentIn, InspectionIn, MoveOutIn
 from app.utils.audit import audit
+from app.utils.email import send_email_async
 from app.utils.errors import ApiError, pydantic_error_response
+from app.utils.invoicing import next_due_date
+from app.utils.welcome_email import application_approved_email, application_rejected_email
 
 leasing_bp = Blueprint("leasing", __name__)
 
@@ -36,6 +39,7 @@ def serialize_application(application):
         "applicant_name": application.applicant.full_name, "applicant_phone": application.applicant.phone,
         "proposed_move_in_date": application.proposed_move_in_date.isoformat(),
         "household_size": application.household_size, "notes": application.notes,
+        "unit_rent": application.unit.unit_type.computed_rent,
         "created_at": application.created_at.isoformat(),
     }
 
@@ -87,18 +91,49 @@ def approve_application(application_id):
         raise ApiError("Application not found", 404)
     if application.status != ApplicationStatus.SUBMITTED or application.unit.status != UnitStatus.VACANT:
         raise ApiError("This application can no longer be approved", 409)
+    try:
+        payload = ApproveApplicationIn.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        return pydantic_error_response(exc), 422
+
+    computed_rent = application.unit.unit_type.computed_rent
+    move_in_date = application.proposed_move_in_date
+    building = application.unit.building
+    due = next_due_date(building, move_in_date)
+    # A move-in that doesn't leave a full month before the building's next rent due
+    # date (true for almost every move-in unless it happens to land exactly on the
+    # due day) starts the tenancy as PENDING with a landlord-set initial rent for
+    # that partial first period, instead of an auto-generated full-month invoice.
+    starts_pending = (due - move_in_date).days < 30
+
     tenancy = Tenancy(unit_id=application.unit_id, tenant_id=application.applicant_id,
-                      move_in_date=application.proposed_move_in_date,
-                      monthly_rent=application.unit.unit_type.computed_rent,
-                      deposit_amount=application.unit.unit_type.computed_rent,
-                      status=TenancyStatus.ACTIVE)
+                      move_in_date=move_in_date, monthly_rent=computed_rent, deposit_amount=computed_rent,
+                      status=TenancyStatus.PENDING if starts_pending else TenancyStatus.ACTIVE)
     application.status, application.reviewed_by_id, application.reviewed_at = ApplicationStatus.APPROVED, user.id, datetime.utcnow()
     application.unit.status = UnitStatus.OCCUPIED
     Application.query.filter(Application.unit_id == application.unit_id, Application.id != application.id,
                              Application.status == ApplicationStatus.SUBMITTED).update({"status": ApplicationStatus.REJECTED})
     db.session.add(tenancy)
+    db.session.flush()
+
+    if starts_pending:
+        initial_amount = payload.initial_rent or computed_rent
+        db.session.add(Invoice(
+            tenancy_id=tenancy.id, period_start=move_in_date, period_end=max(move_in_date, due - timedelta(days=1)),
+            rent_amount=initial_amount, total_amount=initial_amount, due_date=due,
+            status=InvoiceStatus.PENDING, is_initial=True,
+        ))
+
     audit("application.approved", application, tenancy_pending=True)
     db.session.commit()
+    if application.applicant.email:
+        subject, html = application_approved_email(
+            application.applicant.full_name,
+            building_name=application.unit.building.name,
+            unit_number=application.unit.unit_number,
+            move_in_date=application.proposed_move_in_date.strftime("%d %b %Y"),
+        )
+        send_email_async(application.applicant.email, subject, html)
     return {"application": serialize_application(application), "tenancy_id": tenancy.public_id}, 201
 
 
@@ -114,6 +149,13 @@ def reject_application(application_id):
     application.status, application.reviewed_by_id, application.reviewed_at = ApplicationStatus.REJECTED, user.id, datetime.utcnow()
     audit("application.rejected", application)
     db.session.commit()
+    if application.applicant.email:
+        subject, html = application_rejected_email(
+            application.applicant.full_name,
+            building_name=application.unit.building.name,
+            unit_number=application.unit.unit_number,
+        )
+        send_email_async(application.applicant.email, subject, html)
     return serialize_application(application)
 
 
@@ -168,3 +210,45 @@ def move_out(tenancy_id):
     audit("tenancy.moved_out", tenancy, deposit_refunded=payload.deposit_refunded, notes=payload.notes)
     db.session.commit()
     return {"id": tenancy.public_id, "status": tenancy.status.value, "unit_status": tenancy.unit.status.value}
+
+
+def serialize_deposit_payment(payment):
+    return {"id": payment.public_id, "amount": payment.amount, "method": payment.method.value,
+            "reference": payment.reference, "paid_at": payment.paid_at.isoformat(),
+            "recorded_by": payment.recorded_by.full_name if payment.recorded_by else None}
+
+
+@leasing_bp.get("/tenancies/<tenancy_id>/deposit-payments")
+@jwt_required()
+def list_deposit_payments(tenancy_id):
+    user = current_user()
+    tenancy = owned_tenancy(user, tenancy_id)
+    paid = sum(p.amount for p in tenancy.deposit_payments)
+    return {
+        "deposit_payments": [serialize_deposit_payment(p) for p in tenancy.deposit_payments],
+        "deposit_amount": tenancy.deposit_amount,
+        "deposit_paid": paid,
+        "deposit_balance": max(0, tenancy.deposit_amount - paid),
+    }
+
+
+@leasing_bp.post("/tenancies/<tenancy_id>/deposit-payments")
+@jwt_required()
+def record_deposit_payment(tenancy_id):
+    user = current_user()
+    tenancy = owned_tenancy(user, tenancy_id)
+    try:
+        payload = DepositPaymentIn.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        return pydantic_error_response(exc), 422
+    paid = sum(p.amount for p in tenancy.deposit_payments)
+    if payload.amount > tenancy.deposit_amount - paid + 0.001:
+        raise ApiError("Payment exceeds the outstanding deposit balance", 422)
+    payment = DepositPayment(
+        tenancy_id=tenancy.id, amount=payload.amount, method=PaymentMethod(payload.method),
+        reference=payload.reference, paid_at=payload.paid_at or datetime.utcnow(), recorded_by_id=user.id,
+    )
+    db.session.add(payment)
+    audit("deposit_payment.recorded", payment, tenancy_id=tenancy.public_id, amount=payload.amount)
+    db.session.commit()
+    return serialize_deposit_payment(payment), 201

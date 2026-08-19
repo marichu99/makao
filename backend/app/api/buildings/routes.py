@@ -129,7 +129,7 @@ def landlord_tenants():
         for building in landlord.buildings
         for unit in building.units
         for tenancy in unit.tenancies
-        if tenancy.status == TenancyStatus.ACTIVE
+        if tenancy.status in (TenancyStatus.ACTIVE, TenancyStatus.PENDING)
     ]
     tenancies.sort(key=lambda t: t.tenant.full_name)
 
@@ -144,7 +144,10 @@ def landlord_tenants():
                 "unit_number": t.unit.unit_number,
                 "monthly_rent": t.monthly_rent,
                 "move_in_date": t.move_in_date.isoformat(),
+                "tenancy_status": t.status.value,
                 "rent_status": ensure_current_month_invoice(t).status.value,
+                "deposit_amount": t.deposit_amount,
+                "deposit_paid": sum(p.amount for p in t.deposit_payments),
             }
             for t in tenancies
         ]

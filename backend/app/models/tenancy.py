@@ -5,6 +5,7 @@ from app.models.mixins import BaseModel
 
 
 class TenancyStatus(str, enum.Enum):
+    PENDING = "pending"  # onboarding: awaiting payment of the landlord-set initial rent
     ACTIVE = "active"
     NOTICE_GIVEN = "notice_given"
     ENDED = "ended"
@@ -28,6 +29,7 @@ class Tenancy(BaseModel):
     unit = db.relationship("Unit", back_populates="tenancies")
     tenant = db.relationship("User", back_populates="tenancies")
     invoices = db.relationship("Invoice", back_populates="tenancy", cascade="all, delete-orphan")
+    deposit_payments = db.relationship("DepositPayment", back_populates="tenancy", cascade="all, delete-orphan")
     notices = db.relationship("Notice", back_populates="tenancy", cascade="all, delete-orphan")
     inspections = db.relationship("Inspection", back_populates="tenancy", cascade="all, delete-orphan")
     documents = db.relationship("Document", back_populates="tenancy", cascade="all, delete-orphan")

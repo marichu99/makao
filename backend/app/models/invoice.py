@@ -29,6 +29,12 @@ class Invoice(BaseModel):
     total_amount = db.Column(db.Float, nullable=False)
     due_date = db.Column(db.Date, nullable=False)
     status = db.Column(db.Enum(InvoiceStatus), nullable=False, default=InvoiceStatus.PENDING)
+    # The onboarding invoice created at approval time for a tenancy whose move-in
+    # doesn't leave a full month before the building's next rent due date — see
+    # app/utils/invoicing.py. Distinguishes it from the regular auto-generated
+    # monthly invoices so ensure_current_month_invoice can skip normal billing
+    # while the tenancy is still PENDING.
+    is_initial = db.Column(db.Boolean, nullable=False, default=False)
 
     tenancy = db.relationship("Tenancy", back_populates="invoices")
     payments = db.relationship("Payment", back_populates="invoice", cascade="all, delete-orphan")

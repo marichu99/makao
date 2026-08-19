@@ -7,6 +7,7 @@ from app.models.tenancy import Tenancy, TenancyStatus, CaretakerAssignment
 from app.models.expense import Expense, ExpenseAllocation, ExpenseType, ExpenseLiability
 from app.models.utility_bill import UtilityBill
 from app.models.invoice import Invoice, Payment, InvoiceStatus, PaymentMethod
+from app.models.deposit_payment import DepositPayment
 from app.models.notice import Notice, NoticeType
 from app.models.ticket import Ticket, TicketStatus, TicketPriority
 from app.models.complaint import Complaint, ComplaintStatus
@@ -34,6 +35,7 @@ __all__ = [
     "Payment",
     "InvoiceStatus",
     "PaymentMethod",
+    "DepositPayment",
     "Notice",
     "NoticeType",
     "Ticket",

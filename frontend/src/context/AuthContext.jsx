@@ -101,7 +101,7 @@ export function AuthProvider({ children }) {
 
   const submitApplication = (payload) => callWithAuth((token) => api.post('/leasing/applications', payload, token))
   const fetchApplications = () => callWithAuth((token) => api.get('/leasing/applications', token))
-  const approveApplication = (id) => callWithAuth((token) => api.post(`/leasing/applications/${id}/approve`, {}, token))
+  const approveApplication = (id, payload = {}) => callWithAuth((token) => api.post(`/leasing/applications/${id}/approve`, payload, token))
   const rejectApplication = (id) => callWithAuth((token) => api.post(`/leasing/applications/${id}/reject`, {}, token))
   const fetchExpenses = () => callWithAuth((token) => api.get('/expenses/', token))
   const fetchTickets = () => callWithAuth((token) => api.get('/tickets/', token))
@@ -147,6 +147,11 @@ export function AuthProvider({ children }) {
   const fetchTenantRentHistory = (tenancyId) =>
     callWithAuth((token) => api.get(`/buildings/tenants/${tenancyId}/rent-history`, token))
 
+  const recordDepositPayment = (tenancyId, payload) =>
+    callWithAuth((token) => api.post(`/leasing/tenancies/${tenancyId}/deposit-payments`, payload, token))
+  const fetchDepositPayments = (tenancyId) =>
+    callWithAuth((token) => api.get(`/leasing/tenancies/${tenancyId}/deposit-payments`, token))
+
   return (
     <AuthContext.Provider
       value={{
@@ -191,6 +196,8 @@ export function AuthProvider({ children }) {
         payInvoice,
         sendTenantNotice,
         fetchTenantRentHistory,
+        recordDepositPayment,
+        fetchDepositPayments,
       }}
     >
       {children}
