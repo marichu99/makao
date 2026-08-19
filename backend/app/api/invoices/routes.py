@@ -5,11 +5,13 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from pydantic import BaseModel, Field, ValidationError
 
 from app.extensions import db
-from app.models import Building, Invoice, InvoiceStatus, Notice, NoticeType, Payment, PaymentMethod, Tenancy, User
+from app.models import Building, Invoice, InvoiceStatus, Notice, NoticeType, Payment, PaymentMethod, Tenancy, TenancyStatus, User
 from app.utils.email import send_email_async
 from app.utils.audit import audit
 from app.utils.errors import ApiError, pydantic_error_response
 from app.utils.invoicing import sync_overdue_status
+from app.utils.receipt_pdf import generate_rent_receipt_pdf
+from app.utils.storage import get_signed_url, upload_file
 from app.utils.welcome_email import tenant_notice_email
 
 invoices_bp = Blueprint("invoices", __name__)
@@ -40,6 +42,8 @@ def refresh_status(invoice):
     paid = sum(float(payment.amount) for payment in invoice.payments)
     if paid >= float(invoice.total_amount):
         invoice.status = InvoiceStatus.PAID
+        if invoice.is_initial and invoice.tenancy.status == TenancyStatus.PENDING:
+            invoice.tenancy.status = TenancyStatus.ACTIVE
     elif paid > 0:
         invoice.status = InvoiceStatus.PARTIALLY_PAID
     else:
@@ -57,7 +61,8 @@ def serialize(invoice):
             "paid_amount": paid, "balance": max(0, float(invoice.total_amount) - paid),
             "status": invoice.status.value,
             "payments": [{"id": p.public_id, "amount": float(p.amount), "method": p.method.value,
-                          "reference": p.reference, "paid_at": p.paid_at.isoformat()} for p in invoice.payments]}
+                          "reference": p.reference, "paid_at": p.paid_at.isoformat(),
+                          "has_receipt": bool(p.receipt_path)} for p in invoice.payments]}
 
 
 @invoices_bp.get("/arrears")
@@ -129,11 +134,38 @@ def record_payment(invoice_id):
     balance = float(invoice.total_amount) - sum(float(p.amount) for p in invoice.payments)
     if payload.amount > balance + 0.001:
         raise ApiError("Payment exceeds the outstanding invoice balance", 422)
-    payment = Payment(invoice_id=invoice.id, amount=payload.amount, method=method,
+    # Constructed via the `invoice=` relationship (not invoice_id=) so it's appended
+    # to invoice.payments immediately in memory — refresh_status()'s balance sum below
+    # would otherwise miss it, since the balance check above already lazy-loaded (and
+    # cached) that collection before this payment existed.
+    payment = Payment(invoice=invoice, amount=payload.amount, method=method,
                       reference=payload.reference, paid_at=payload.paid_at or datetime.utcnow(), recorded_by_id=user.id)
     db.session.add(payment)
     db.session.flush()
     refresh_status(invoice)
+
+    pdf_bytes = generate_rent_receipt_pdf(
+        tenant_name=invoice.tenancy.tenant.full_name,
+        building_name=invoice.tenancy.unit.building.name,
+        unit_number=invoice.tenancy.unit.unit_number,
+        period_label=invoice.period_start.strftime("%B %Y"),
+        amount=payment.amount,
+        method=payload.method,
+        reference=payload.reference,
+        paid_at=payment.paid_at.strftime("%d %b %Y, %H:%M"),
+    )
+    payment.receipt_path = upload_file(pdf_bytes, f"receipts/{payment.public_id}.pdf", "application/pdf")
+
     audit("payment.reconciled", payment, invoice_id=invoice.public_id, amount=payload.amount)
     db.session.commit()
     return serialize(invoice), 201
+
+
+@invoices_bp.get("/payments/<payment_id>/receipt")
+@jwt_required()
+def payment_receipt(payment_id):
+    user = landlord()
+    payment = Payment.query.filter_by(public_id=payment_id).first()
+    if not payment or payment.invoice.tenancy.unit.building.landlord_id != user.landlord_profile.id or not payment.receipt_path:
+        raise ApiError("Receipt not found", 404)
+    return {"url": get_signed_url(payment.receipt_path)}

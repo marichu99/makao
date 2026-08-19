@@ -121,6 +121,10 @@ export function AuthProvider({ children }) {
     callWithAuth((token) => api.post(`/invoices/${invoiceId}/payments`, payload, token))
   const sendInvoiceReminder = (invoiceId) =>
     callWithAuth((token) => api.post(`/invoices/${invoiceId}/send-reminder`, {}, token))
+  const fetchPaymentReceiptUrl = (paymentId) =>
+    callWithAuth((token) => api.get(`/invoices/payments/${paymentId}/receipt`, token))
+  const fetchMyPaymentReceiptUrl = (paymentId) =>
+    callWithAuth((token) => api.get(`/tenants/payments/${paymentId}/receipt`, token))
   const fetchPortfolioReport = () => callWithAuth((token) => api.get('/reports/portfolio', token))
   const fetchPendingCounts = () => callWithAuth((token) => api.get('/reports/pending-counts', token))
 
@@ -194,6 +198,8 @@ export function AuthProvider({ children }) {
         fetchInvoices,
         recordInvoicePayment,
         sendInvoiceReminder,
+        fetchPaymentReceiptUrl,
+        fetchMyPaymentReceiptUrl,
         fetchPortfolioReport,
         fetchPendingCounts,
         fetchMyTenancies,
