@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl
@@ -10,6 +10,10 @@ class ApplicationIn(BaseModel):
     household_size: int = Field(default=1, ge=1, le=20)
     employment_details: str | None = Field(default=None, max_length=500)
     notes: str | None = Field(default=None, max_length=1000)
+
+
+class ApproveApplicationIn(BaseModel):
+    initial_rent: float | None = Field(default=None, gt=0)
 
 
 class InspectionIn(BaseModel):
@@ -24,6 +28,13 @@ class DocumentIn(BaseModel):
     document_type: str = Field(min_length=1, max_length=50)
     url: str = Field(min_length=1, max_length=1000)
     tenancy_id: str | None = None
+
+
+class DepositPaymentIn(BaseModel):
+    amount: float = Field(gt=0)
+    method: Literal["mpesa", "cash", "bank_transfer"]
+    reference: str | None = Field(default=None, max_length=100)
+    paid_at: datetime | None = None
 
 
 class MoveOutIn(BaseModel):

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Users, Mail, History } from 'lucide-react'
+import { Users, Mail, History, PiggyBank } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import EmptyGridPage from '@/pages/landlord/EmptyGridPage'
 import SendNoticeDialog from '@/components/landlord/SendNoticeDialog'
 import PaymentHistoryDialog from '@/components/landlord/PaymentHistoryDialog'
+import RecordDepositDialog from '@/components/landlord/RecordDepositDialog'
 import DataGrid from '@/components/shared/DataGrid'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -28,6 +29,7 @@ export default function TenantsPage() {
   const [loadError, setLoadError] = useState('')
   const [noticeTargets, setNoticeTargets] = useState(null)
   const [historyTargets, setHistoryTargets] = useState(null)
+  const [depositTarget, setDepositTarget] = useState(null)
 
   const load = async () => {
     setLoading(true)
@@ -131,7 +133,21 @@ export default function TenantsPage() {
             key: 'rent_status',
             header: 'Rent status',
             render: (t) => (
-              <Badge style={RENT_STATUS_STYLES[t.rent_status] || {}}>{rentStatusLabel(t.rent_status)}</Badge>
+              <div className="flex flex-wrap items-center gap-1">
+                {t.tenancy_status === 'pending' && (
+                  <Badge style={{ background: 'rgba(160, 98, 42, 0.12)', color: colors.accent }}>Pending move-in</Badge>
+                )}
+                <Badge style={RENT_STATUS_STYLES[t.rent_status] || {}}>{rentStatusLabel(t.rent_status)}</Badge>
+              </div>
+            ),
+          },
+          {
+            key: 'deposit',
+            header: 'Deposit',
+            render: (t) => (
+              <span style={{ color: colors.brown[700] }}>
+                KES {(t.deposit_paid || 0).toLocaleString()} / {(t.deposit_amount || 0).toLocaleString()}
+              </span>
             ),
           },
         ]}
@@ -142,6 +158,9 @@ export default function TenantsPage() {
             </DropdownMenuItem>
             <DropdownMenuItem disabled={selectedRows.length === 0} onClick={() => setHistoryTargets(selectedRows)}>
               <History size={14} /> Payment history
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={selectedRows.length !== 1} onClick={() => setDepositTarget(selectedRows[0])}>
+              <PiggyBank size={14} /> Record deposit
             </DropdownMenuItem>
           </>
         )}
@@ -167,6 +186,13 @@ export default function TenantsPage() {
         open={Boolean(historyTargets)}
         onOpenChange={(next) => { if (!next) setHistoryTargets(null) }}
         tenants={historyTargets}
+      />
+
+      <RecordDepositDialog
+        tenant={depositTarget}
+        open={Boolean(depositTarget)}
+        onOpenChange={(next) => { if (!next) setDepositTarget(null) }}
+        onSuccess={() => { setDepositTarget(null); load() }}
       />
     </div>
   )

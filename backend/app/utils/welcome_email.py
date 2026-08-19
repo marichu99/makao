@@ -136,6 +136,44 @@ def tenant_welcome_email(full_name: str) -> tuple[str, str]:
     return subject, _shell("Welcome to Nyumba", body, "Go to your dashboard", login_url)
 
 
+def application_approved_email(
+    full_name: str,
+    *,
+    building_name: str,
+    unit_number: str,
+    move_in_date: str,
+) -> tuple[str, str]:
+    first_name = html.escape(full_name.split(" ")[0])
+    login_url = f"{current_app.config['FRONTEND_URL']}/login"
+    subject = f"Your application for Unit {unit_number} was approved"
+    body = f"""\
+      <p>Hi {first_name},</p>
+      <p>Good news — your application has been approved and your tenancy is now set up.</p>
+      <div style="margin:20px 0;padding:14px 16px;border-left:4px solid {ACCENT};background:{CREAM_50};">
+        <strong style="color:{BROWN_800};">Unit {html.escape(unit_number)} — {html.escape(building_name)}</strong>
+        <p style="margin:6px 0 0;color:{BROWN_600};font-size:13px;">Move-in date: {html.escape(move_in_date)}</p>
+      </div>
+      <p>Log in to view your invoices and get started.</p>"""
+    return subject, _shell("Application approved", body, "Go to your dashboard", login_url)
+
+
+def application_rejected_email(
+    full_name: str,
+    *,
+    building_name: str,
+    unit_number: str,
+) -> tuple[str, str]:
+    first_name = html.escape(full_name.split(" ")[0])
+    login_url = f"{current_app.config['FRONTEND_URL']}/login"
+    subject = f"Update on your application for Unit {unit_number}"
+    body = f"""\
+      <p>Hi {first_name},</p>
+      <p>Thanks for applying for Unit {html.escape(unit_number)} at {html.escape(building_name)}.
+      Unfortunately, your application was not approved this time.</p>
+      <p>You're welcome to apply for another available unit at any time.</p>"""
+    return subject, _shell("Application update", body, "Browse other units", login_url)
+
+
 def maintenance_update_email(
     full_name: str,
     *,
