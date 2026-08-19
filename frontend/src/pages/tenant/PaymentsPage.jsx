@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Wallet } from 'lucide-react'
+import { Download, Wallet } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import EmptyGridPage from '@/pages/landlord/EmptyGridPage'
 import PayRentDialog from '@/components/tenant/PayRentDialog'
@@ -21,11 +21,15 @@ function formatDate(iso) {
 }
 
 export default function TenantPaymentsPage() {
-  const { fetchMyInvoices, session } = useAuth()
+  const { fetchMyInvoices, fetchMyPaymentReceiptUrl, session } = useAuth()
   const [invoices, setInvoices] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [payTargets, setPayTargets] = useState(null)
+
+  const downloadReceipt = async (paymentId) => {
+    try { const { url } = await fetchMyPaymentReceiptUrl(paymentId); window.open(url, '_blank') } catch (err) { toast.error(err.message) }
+  }
 
   const load = async () => {
     setLoading(true)
@@ -121,6 +125,15 @@ export default function TenantPaymentsPage() {
               <span style={{ fontSize: '0.8rem', color: colors.brown[600] }}>
                 {inv.status === 'paid' && inv.paid_at ? formatDate(inv.paid_at.slice(0, 10)) : '—'}
               </span>
+            ),
+          },
+          {
+            key: 'receipt',
+            header: 'Receipt',
+            render: (inv) => inv.payment_id && (
+              <Button size="sm" variant="outline" title="Download receipt" onClick={() => downloadReceipt(inv.payment_id)}>
+                <Download size={14} />
+              </Button>
             ),
           },
         ]}

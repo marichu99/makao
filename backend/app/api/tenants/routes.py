@@ -23,6 +23,7 @@ from app.utils.email import send_email_async
 from app.utils.errors import ApiError, pydantic_error_response
 from app.utils.invoicing import ensure_current_month_invoice
 from app.utils.receipt_pdf import generate_rent_receipt_pdf
+from app.utils.storage import get_signed_url, upload_file
 from app.utils.welcome_email import rent_receipt_email
 
 tenants_bp = Blueprint("tenants", __name__)
@@ -65,6 +66,7 @@ def _serialize_invoice(invoice: Invoice) -> dict:
         "paid_at": last_payment.paid_at.isoformat() if last_payment else None,
         "payment_method": last_payment.method.value if last_payment else None,
         "payment_reference": last_payment.reference if last_payment else None,
+        "payment_id": last_payment.public_id if last_payment and last_payment.receipt_path else None,
     }
 
 
@@ -201,26 +203,31 @@ def pay_invoice(invoice_id):
     )
     db.session.add(payment)
     invoice.status = InvoiceStatus.PAID
+    if invoice.is_initial and invoice.tenancy.status == TenancyStatus.PENDING:
+        invoice.tenancy.status = TenancyStatus.ACTIVE
+    db.session.flush()
+
+    building_name = invoice.tenancy.unit.building.name
+    unit_number = invoice.tenancy.unit.unit_number
+    period_label = invoice.period_start.strftime("%B %Y")
+    paid_at_label = paid_at.strftime("%d %b %Y, %H:%M")
+
+    pdf_bytes = generate_rent_receipt_pdf(
+        tenant_name=tenant.full_name,
+        building_name=building_name,
+        unit_number=unit_number,
+        period_label=period_label,
+        amount=invoice.total_amount,
+        method=payload.method,
+        reference=reference,
+        paid_at=paid_at_label,
+    )
+    payment.receipt_path = upload_file(pdf_bytes, f"receipts/{payment.public_id}.pdf", "application/pdf")
     db.session.commit()
 
     if tenant.email:
-        building_name = invoice.tenancy.unit.building.name
-        unit_number = invoice.tenancy.unit.unit_number
-        period_label = invoice.period_start.strftime("%B %Y")
-        paid_at_label = paid_at.strftime("%d %b %Y, %H:%M")
-
         subject, html = rent_receipt_email(
             tenant.full_name,
-            building_name=building_name,
-            unit_number=unit_number,
-            period_label=period_label,
-            amount=invoice.total_amount,
-            method=payload.method,
-            reference=reference,
-            paid_at=paid_at_label,
-        )
-        pdf_bytes = generate_rent_receipt_pdf(
-            tenant_name=tenant.full_name,
             building_name=building_name,
             unit_number=unit_number,
             period_label=period_label,
@@ -233,3 +240,13 @@ def pay_invoice(invoice_id):
         send_email_async(tenant.email, subject, html, attachment=attachment)
 
     return _serialize_invoice(invoice)
+
+
+@tenants_bp.get("/payments/<payment_id>/receipt")
+@jwt_required()
+def payment_receipt(payment_id):
+    tenant = _current_tenant()
+    payment = Payment.query.filter_by(public_id=payment_id).first()
+    if not payment or payment.invoice.tenancy.tenant_id != tenant.id or not payment.receipt_path:
+        raise ApiError("Receipt not found", 404)
+    return {"url": get_signed_url(payment.receipt_path)}

@@ -43,6 +43,7 @@ class Payment(BaseModel):
     reference = db.Column(db.String(100), nullable=True)  # M-Pesa code or receipt no.
     paid_at = db.Column(db.DateTime, nullable=False)
     recorded_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)  # caretaker who logged cash
+    receipt_path = db.Column(db.String(500), nullable=True)  # storage key for the generated PDF receipt
 
     invoice = db.relationship("Invoice", back_populates="payments")
     recorded_by = db.relationship("User")
